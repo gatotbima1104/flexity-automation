@@ -1,12 +1,17 @@
 Documentation
 
 ```
+  1. install-libraries
   npm install
-  make .env and fill this value        
+
+  2. make .env and fill this value        
         EMAIL=
         PASSWORD=
         SPREADSHEET_ID=
 
-  add your credential.json
+  3. add your credential.json
+
+  4. run application
+  npm run dev
 
 ```
