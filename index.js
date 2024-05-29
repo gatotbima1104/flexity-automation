@@ -1,13 +1,10 @@
 // Setup Libraries
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
-
-import { google } from "googleapis";
-import { setTimeout } from "timers/promises";
-
 import * as dotenv from "dotenv";
 import fs from "fs";
-
+import { setTimeout } from "timers/promises";
+import { google } from "googleapis";
 
 // Use StealthPlugin
 puppeteer.use(StealthPlugin());
@@ -60,9 +57,103 @@ async function readSpreadsheet(auth) {
   }
 }
 
-// Save Cookies
-async function saveCookies(cookie, outputFile) {
-  fs.writeFileSync(outputFile, JSON.stringify(cookie));
+// Function Check Product available
+async function avail_products_qty(page) {
+  const quantityProduct = await page.evaluate(() => {
+    const productQty = document.querySelector(
+      'input[name="avail_products_qty"]'
+    );
+    return productQty ? productQty.value : null;
+  });
+
+  return quantityProduct;
+}
+
+// Function for authenticating
+async function authenticateWebsite(page, email, password, browser) {
+  // Define the url-login
+  const loginUrl = "https://www.satnam.de/en/";
+
+  // going to login page
+  await page.goto(loginUrl, {
+    waitUntil: "domcontentloaded",
+  });
+
+  // Click cookies accept
+  await page.click('input[type="submit"]');
+
+  // Click icon login
+  await page.click("#icon-navigation > ul > li:nth-child(3) > a");
+
+  // Typing the credentials
+  // Email
+  await page.type(
+    "#register-box > div:nth-child(1) > form > input[type=text]:nth-child(2)",
+    email,
+    { delay: 100 }
+  );
+
+  // Password
+  await page.type(
+    "#register-box > div:nth-child(1) > form > input[type=password]:nth-child(4)",
+    password,
+    { delay: 100 }
+  );
+
+  // Click submit
+  await page.click("#register-box > div:nth-child(1) > form > button");
+
+  // Wait for 2s checking the condition
+  await setTimeout(1000);
+
+  // Condition if login is failed
+  if (page.url() === "https://www.satnam.de/en/login.php") {
+    // Log the error
+    console.log("Credentials are wrong, Login failed.");
+
+    // Close the browser
+    await browser.close();
+    return false;
+  }
+
+  // Logging log when authentication
+  console.log("login successfully ...");
+
+  return true;
+}
+
+// Function add to chart
+async function addToChart(page, amountItem){
+  // Select total items to the chart
+  const selectSelector = 'select[name="cart_quantity"]';
+  await page.waitForSelector(selectSelector);
+  await page.select(selectSelector, amountItem);
+
+  // Wait for 1s
+  await setTimeout(1000);
+
+  // Add to chart button
+  const chartSelector = "form > div > button";
+  await page.waitForSelector(chartSelector);
+  await page.click(chartSelector);
+
+  // Close box selector
+  const closeBoxSelector = 'div.containerMessageBoxes a.closePopup'
+  await page.waitForSelector(closeBoxSelector)
+  await page.click(closeBoxSelector)
+
+  // logging if the closePopup clicked
+  // console.log(`closeBoxPopup clicked ...`)
+}
+
+// Function getFirst Link Product 
+async function getFirstLink(page){
+  const pageLinkProduct = await page.evaluate(() => {
+    const element = document.querySelector("h2.product-listing-name a");
+    return element ? element.getAttribute("href") : null;
+  });
+
+  return pageLinkProduct
 }
 
 // Run Puppeteer Function
@@ -78,214 +169,116 @@ async function saveCookies(cookie, outputFile) {
 
     // Puppeteer Setup
     const browser = await puppeteer.launch({
-      headless: false,
-      args: [`--no-sandbox`],
+      headless: 'new',
+      args: [
+        `--no-sandbox`,
+      ],
     });
 
     // Opening newPage
     const page = await browser.newPage();
 
-    // Read cookiesExist
-    const cookiesExist = fs.existsSync("cookies.json")
+    // Logging log when authentication
+    console.log("logging in ...");
 
-    // Condition if Cookies exist
-    if(!cookiesExist){
+    // Redirect to Login Page
+    // Minimize the viewport for easy authentication input
+    await page.setViewport({
+      width: 500,
+      height: 768,
+    });
 
-        // Logging log when authentication
-        console.log("logging in ...")
+    // Implement Function Authenticate / Login
+    const loginSuccesfully = await authenticateWebsite(page, email, password, browser);
 
-        // Redirect to Login Page
-        // Minimize the viewport for easy authentication input
-        await page.setViewport({
-          width: 500,
-          height: 768,
-        });
-        
-        // Define the url-login
-        const loginUrl = "https://www.satnam.de/en/";
-
-        // going to login page
-        await page.goto(loginUrl, {
-          waitUntil: "domcontentloaded",
-        });
-    
-        // Click icon login
-        await page.click("#icon-navigation > ul > li:nth-child(3) > a");
-    
-        // Typing the credentials
-        // Email
-        await page.type(
-          "#register-box > div:nth-child(1) > form > input[type=text]:nth-child(2)",
-          email,
-          { delay: 300 }
-        );
-
-        // Password
-        await page.type(
-          "#register-box > div:nth-child(1) > form > input[type=password]:nth-child(4)",
-          password,
-          { delay: 300 }
-        );
-    
-        // Click submit
-        await page.click("#register-box > div:nth-child(1) > form > button");
-    
-        // Saving cookies
-        const cookies = await page.cookies();
-        await saveCookies(cookies, "cookies.json", "utf8");
-
-        // Logging log when authentication
-        console.log('logged in ...')
-    }else{
-        
-        // Read and SetCookies
-        const cookies = JSON.parse(fs.readFileSync('./cookies.json'))
-        await page.setCookie(...cookies)  
-
-        console.log('Cookie setted, logged in ...')
+    // Handling the authenticate
+    if (!loginSuccesfully) {
+      await browser.close();
+      return;
     }
 
-    // Set Viewport to default
-    await page.setViewport({
-        width: 1024,
-        height: 768
-    })
-
-    // Define home Url
-    const homeUrl = "https://www.satnam.de/en/"
-    await page.goto(homeUrl, {
-        waitUntil: 'domcontentloaded'
-    })
-
-    // Click cookies accept
-    await page.click('input[type="submit"]')
-    
-    // Wait for 3s
-    await setTimeout(3000);
-
-    // Define search logic
-    const searchSelector = 'input[name="keywords"]'
-    await page.waitForSelector(searchSelector)
+    // Logging gap symbols
+    console.log("===============================================");
 
     // Loop based on the code and amount
-    for(let i = 0; i < codes.length; i++){
+    for (let i = 0; i < codes.length; i++) {
+      // Handling Errors if exist
+      try {
+        // Define loop variable code and amount
+        const codeItem = codes[i];
+        const amountItem = amounts[i];
 
-        // Handling Errors if exist
-        try {
-            // Define loop variable code and amount
-            const codeItem = codes[i]
-            const amountItem = amounts[i]
+        // Set Viewport to default
+        await page.setViewport({
+          width: 1024,
+          height: 768,
+        });
 
-            // Clear input form
-            await page.evaluate((selector)=> {
-                document.querySelector(selector).value = ''
-            }, searchSelector)
+        // Define home Url
+        const homeUrl = `https://www.satnam.de/en/search.php?keywords=${codeItem}`;
+        await page.goto(homeUrl, {
+          waitUntil: "domcontentloaded",
+        });
 
-            // Type search input
-            await page.type(searchSelector, codeItem, {
-                delay: 500
-            })
-            
-            // Click button search 
-            const btnSearch = 'button[title="Search"]'
-            await page.waitForSelector(btnSearch)
-            await page.click(btnSearch)
+        // Wait for 3s
+        await setTimeout(3000);
 
-            // Set timeout 3s 
-            await setTimeout(3000)
+        // Implement Function get first product
+        const pageLinkProduct = await getFirstLink(page)
 
-            // Evaluate products if the product more than one
-            // const pageLinkProduct = await page.$$eval('div.product-listing-element a',
-            //     elements => elements.map(el => el.getAttribute('href'))
-            // )
-
-            // Evaluate product get first product
-            const pageLinkProduct = await page.evaluate(() => {
-                const element = document.querySelector('h2.product-listing-name a');
-                return element ? element.getAttribute('href') : null;
+        // Condition if pageLinksProduct is exist
+        if (pageLinkProduct) {
+          // Handling errors
+          try {
+            // Go to link parsed
+            await page.goto(pageLinkProduct, {
+              waitUntil: "domcontentloaded",
             });
 
-            // Condition if pageLinksProduct is exist
-            if(pageLinkProduct){
+            // Wait for 2s
+            await setTimeout(2000);
 
-                // Handling errors
-                try {
+            // Implement Function add to page
+            await addToChart(page, amountItem)
 
-                    // Go to link parsed
-                    await page.goto(pageLinkProduct, {
-                        waitUntil: 'domcontentloaded'
-                    })
+            // Wait for 1s
+            await setTimeout(1000);
 
-                    // Wait for 3s
-                    await setTimeout(3000)
-                    
-                    // Select total items to the chart
-                    const selectSelector = 'select[name="cart_quantity"]'
-                    await page.waitForSelector(selectSelector)
-                    await page.select(selectSelector, amountItem)
+            // Information about the quantity products - function
+            const quantityProduct = await avail_products_qty(page);
 
-                    // Wait for 1s
-                    await setTimeout(1000)
-    
-                    // Add to chart button
-                    const chartSelector = 'form > div > button'
-                    await page.waitForSelector(chartSelector)
-                    await page.click(chartSelector)
+            // Logging successfully product added to chart
+            console.log(
+              `Successfully added item ${codeItem} (amount: ${amountItem}) to the basket.`
+            );
 
-                    // Wait for 2s
-                    await setTimeout(5000)
-    
-                    // Information about the quantity products - function 
-                    const quantityProduct = await page.evaluate(()=> {
-                        const productQty = document.querySelector('input[name="avail_products_qty"]')
-                        return productQty ? productQty.value : null
-                    })
+            // Logging the quantity product
+            console.log(
+              `The available product quantity is : ${quantityProduct}`
+            );
+          } catch (error) {
+            console.error(
+              `Failed to add item ${codeItem} (amount: ${amountItem}) to the basket:`,
+              error
+            );
+          } finally {
+            console.log("===============================================");
+          }
+        } else {
+          // Logging console if the product is not there
+          console.log(`No products detail found for code ${codeItem}`);
+          console.log("===============================================");
+        }
 
-                    // Logging successfully product added to chart
-                    console.log(`Successfully added item ${codeItem} (amount: ${amountItem}) to the basket.`);
-
-                    // Logging the quantity product
-                    console.log(`The available product quantity is : ${quantityProduct}`)
-
-                    console.log('===============================================')
-    
-                    // // Loop if the product more than one (OPTIONAL)
-                    // for(let link of pageLinkProduct){   
-                    //     await page.goto(link, {
-                    //         waitUntil: 'domcontentloaded'
-                    //     })
-                        
-                    //     // Select total items
-                    //     const selectSelector = 'select[name="cart_quantity"]'
-                    //     await page.waitForSelector(selectSelector)
-                    //     await page.select(searchSelector, amountItem)
-    
-                    //     // Wait for 2s
-                    //     await setTimeout(2000)
-    
-                    //     // Add to chart button
-                    //     const chartSelector = 'button.icon-button'
-                    //     await page.waitForSelector(chartSelector)
-                    //     await page.click(chartSelector)
-                    // }
-                } catch (error) {
-                    console.error(`Failed to add item ${codeItem} (amount: ${amountItem}) to the basket:`, error);
-                }
-            }else{
-                
-                // Logging console if the product is not there
-                console.log(`No products detail found for code ${codeItem}`)
-            }
-
-            // Set timeout 2s 
-            await setTimeout(2000)
-                
-            } catch (error) {
-                console.log(error)
-            }        
+        // Set timeout 2s
+        await setTimeout(2000);
+      } catch (error) {
+        console.log(error);
+      }
     }
 
-    console.log(`All product successfully loaded ......`)
+    console.log(`All product successfully loaded ......`);
+
     // Close Browser
     await browser.close();
   } catch (error) {
