@@ -123,37 +123,37 @@ async function authenticateWebsite(page, email, password, browser) {
 }
 
 // Function add to chart
-async function addToChart(page, amountItem){
-  // Select total items to the chart
-  const selectSelector = 'select[name="cart_quantity"]';
-  await page.waitForSelector(selectSelector);
-  await page.select(selectSelector, amountItem);
+async function addToChart(page, amountItem) {
+    // Select total items to the chart
+    const selectSelector = 'select[name="cart_quantity"]';
+    await page.waitForSelector(selectSelector);
+    await page.select(selectSelector, amountItem);
 
-  // Wait for 1s
-  await setTimeout(1000);
+    // Wait for 1s
+    await setTimeout(1000);
 
-  // Add to chart button
-  const chartSelector = "form > div > button";
-  await page.waitForSelector(chartSelector);
-  await page.click(chartSelector);
+    // Add to chart button
+    const chartSelector = "form > div > button";
+    await page.waitForSelector(chartSelector);
+    await page.click(chartSelector);
 
-  // Close box selector
-  const closeBoxSelector = 'div.containerMessageBoxes a.closePopup'
-  await page.waitForSelector(closeBoxSelector)
-  await page.click(closeBoxSelector)
+    // Close box selector
+    const closeBoxSelector = "div.containerMessageBoxes a.closePopup";
+    await page.waitForSelector(closeBoxSelector);
+    await page.click(closeBoxSelector);
 
   // logging if the closePopup clicked
   // console.log(`closeBoxPopup clicked ...`)
 }
 
-// Function getFirst Link Product 
-async function getFirstLink(page){
+// Function getFirst Link Product
+async function getFirstLink(page) {
   const pageLinkProduct = await page.evaluate(() => {
     const element = document.querySelector("h2.product-listing-name a");
     return element ? element.getAttribute("href") : null;
   });
 
-  return pageLinkProduct
+  return pageLinkProduct;
 }
 
 // Run Puppeteer Function
@@ -169,10 +169,8 @@ async function getFirstLink(page){
 
     // Puppeteer Setup
     const browser = await puppeteer.launch({
-      headless: 'new',
-      args: [
-        `--no-sandbox`,
-      ],
+      headless: "new",
+      args: [`--no-sandbox`],
     });
 
     // Opening newPage
@@ -189,7 +187,12 @@ async function getFirstLink(page){
     });
 
     // Implement Function Authenticate / Login
-    const loginSuccesfully = await authenticateWebsite(page, email, password, browser);
+    const loginSuccesfully = await authenticateWebsite(
+      page,
+      email,
+      password,
+      browser
+    );
 
     // Handling the authenticate
     if (!loginSuccesfully) {
@@ -224,7 +227,7 @@ async function getFirstLink(page){
         await setTimeout(3000);
 
         // Implement Function get first product
-        const pageLinkProduct = await getFirstLink(page)
+        const pageLinkProduct = await getFirstLink(page);
 
         // Condition if pageLinksProduct is exist
         if (pageLinkProduct) {
@@ -239,7 +242,7 @@ async function getFirstLink(page){
             await setTimeout(2000);
 
             // Implement Function add to page
-            await addToChart(page, amountItem)
+            await addToChart(page, amountItem);
 
             // Wait for 1s
             await setTimeout(1000);
